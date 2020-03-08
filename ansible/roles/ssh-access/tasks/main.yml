@@ -1,0 +1,5 @@
+# SSH Keys that are required on every machine
+- name: Install required SSH Keys
+  authorized_key: user={{ item.user }} key='{{ lookup('file', item.key  ) }}' state={{ item.state }}
+  with_items:
+    - { user: 'root', key: 'fklauke.pub', state: 'present' }
