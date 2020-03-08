@@ -1,0 +1,5 @@
+# Can be applied to all hosts
+- hosts: all
+  user: root
+  roles:
+    - ssh-access
