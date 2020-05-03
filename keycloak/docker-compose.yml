@@ -1,0 +1,47 @@
+version: "3.7"
+
+services:
+  keycloak-postgres:
+    image: postgres
+    container_name: keycloak-postgres
+    volumes:
+      - keycloak-postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: password
+    networks:
+      - keycloak
+
+  video-keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak
+    environment:
+      DB_VENDOR: POSTGRES
+      DB_ADDR: keycloak-postgres
+      DB_DATABASE: keycloak
+      DB_USER: keycloak
+      DB_SCHEMA: public
+      DB_PASSWORD: password
+      KEYCLOAK_USER: admin
+      KEYCLOAK_PASSWORD: 123456789
+      PROXY_ADDRESS_FORWARDING: "true"
+    networks:
+      - keycloak
+      - traefik-public
+    depends_on:
+      - keycloak-postgres
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.keycloak.rule=Host(`auth.klauke-enterprises.com`)"
+      - "traefik.http.routers.keycloak.entrypoints=websecure"
+      - "traefik.http.middlewares.keycloak_https.redirectscheme.scheme=https"
+      - "traefik.http.routers.keycloak.tls.certresolver=letsencryptresolver"
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+      
+ networks:
+   keycloak:
+     name: keycloak
+ 
+ volumes:
+   keycloak-postgres: {}
