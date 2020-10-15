@@ -32,7 +32,6 @@ services:
       - "traefik.http.middlewares.traefik_https.redirectscheme.scheme=https"
       - "traefik.http.routers.traefik.service=api@internal"
       - "traefik.http.routers.traefik.middlewares=auth"
-      - "traefik.http.middlewares.auth.basicauth.users=fklauke:$$apr1$$KMdBAb1l$$UVAY5cp/GxjC03kw6Qntv1"
       
 networks:
   traefik-public:
