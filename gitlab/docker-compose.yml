@@ -1,0 +1,104 @@
+version: "3.7"
+
+services:
+  gitlab:
+    container_name: gitlab
+    image: 'gitlab/gitlab-ce:latest'
+    restart: always
+    hostname: 'git.klauke-enterprirses.com'
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'https://git.klauke-enterprirses.com'
+        registry_external_url 'https://registry.klauke-enterprirses.com''
+        nginx['listen_port'] = 8085
+        nginx['listen_https'] = false
+        nginx['proxy_set_headers'] = {
+          "X-Forwarded-Proto" => "https",
+          "X-Forwarded-Ssl" => "on"
+        }
+        gitlab_rails['gitlab_shell_ssh_port'] = 22
+        gitlab_rails['smtp_enable'] = true
+        gitlab_rails['smtp_address'] = "email-smtp.eu-west-1.amazonaws.com"
+        gitlab_rails['smtp_port'] = 587
+        gitlab_rails['smtp_user_name'] = "<SMTP Username>"
+        gitlab_rails['smtp_password'] = "<SMTP Password>"
+        gitlab_rails['smtp_domain'] = "klauke-enterprises.com"
+        gitlab_rails['smtp_authentication'] = "login"
+        gitlab_rails['smtp_enable_starttls_auto'] = true
+        registry['enable'] = true
+        registry_nginx['enable'] = true
+        registry_nginx['listen_port'] = 8086
+        registry_nginx['listen_https'] = false
+        registry_nginx['proxy_set_headers'] = {
+          "X-Forwarded-Proto" => "https",
+          "X-Forwarded-Ssl" => "on"
+        }
+    networks:
+      - traefik-public
+      - dev
+    volumes:
+      - gitlab-config:/etc/gitlab
+      - gitlab-logs:/var/log/gitlab
+      - gitlab-data:/var/opt/gitlab  
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gitlab.rule=Host(`git.klauke-enterprises.com`)"
+      - "traefik.http.routers.gitlab.entrypoints=websecure"
+      - "traefik.http.middlewares.gitlab_https.redirectscheme.scheme=https"
+      - "traefik.http.routers.gitlab.tls.certresolver=letsencryptresolver"
+      - "traefik.http.services.gitlab.loadbalancer.server.port=8085"
+      - "traefik.http.routers.gitlab_registry.rule=Host(`registry.klauke-enterprises.com`)"
+      - "traefik.http.routers.gitlab_registry.entrypoints=websecure"
+      - "traefik.http.middlewares.gitlab_registry_https.redirectscheme.scheme=https"
+      - "traefik.http.routers.gitlab_registry.tls.certresolver=letsencryptresolver"
+      - "traefik.http.services.gitlab_registry.loadbalancer.server.port=8086"
+      
+  gitlab-runner-01:
+    image: 'gitlab/gitlab-runner:latest'
+    container_name: gitlab-runner-01
+    restart: always
+    networks:
+      - dev
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - gitlab-runner-01-etc:/etc/gitlab-runner
+      - gitlab-runner-01-home:/home/gitlab-runner
+
+  traefik:
+    image: traefik:v2.2
+    container_name: traefik
+    command:
+      - "--api=true"
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencryptresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencryptresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencryptresolver.acme.email=info@klauke-enterprises.com"
+      - "--certificatesresolvers.letsencryptresolver.acme.storage=/letsencrypt/acme.json"
+      - "--providers.docker.network=traefik-public"
+    ports:
+      - 80:80
+      - 443:443
+      - 8080:8080
+    volumes:
+      - ./letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik-public
+      - dev
+
+networks:
+  dev: {}  
+  traefik-public: {}
+
+volumes:
+  gitlab-config: 
+  gitlab-logs:
+  gitlab-data:
+  gitlab-runner-01-home:
+  gitlab-runner-01-etc: 
