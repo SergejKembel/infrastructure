@@ -64,6 +64,20 @@ services:
       - gitlab-runner-01-etc:/etc/gitlab-runner
       - gitlab-runner-01-home:/home/gitlab-runner
 
+  gitlab-runner-cache:
+    image: minio/minio:latest
+    container_name: gitlab-runner-cache
+    restart: always
+    networks:
+      - dev
+    environment:
+      - MINIO_ACCESS_KEY=minio
+      - MINIO_SECRET_KEY=minio
+    volumes:
+      - /.minio:/root/.minio
+      - /export:/export
+    command: server /export
+
   traefik:
     image: traefik:v2.2
     container_name: traefik
