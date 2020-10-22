@@ -1,0 +1,62 @@
+version: "3.7"
+
+services:
+  mysql:
+    image: mariadb:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - database
+    ports:
+      - "127.0.0.1:3306:3306"
+   
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:5.0.1
+    restart: always
+    environment:
+      PMA_HOST: mysql
+    networks:
+     - database
+     - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.gitlab.rule=Host(`phpmyadmin.klauke-services.de`)"
+      - "traefik.http.routers.gitlab.entrypoints=websecure"
+      - "traefik.http.middlewares.gitlab_https.redirectscheme.scheme=https"
+      - "traefik.http.routers.gitlab.tls.certresolver=letsencryptresolver"
+      - "traefik.http.services.gitlab.loadbalancer.server.port=80"
+
+  traefik:
+    image: traefik:v2.2
+    container_name: traefik
+    command:
+      - "--api=true"
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencryptresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencryptresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencryptresolver.acme.email=info@klauke-enterprises.com"
+      - "--certificatesresolvers.letsencryptresolver.acme.storage=/letsencrypt/acme.json"
+      - "--providers.docker.network=traefik-public"
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik-public
+      - database
+networks:
+  traefik-public: {}
+  database: {}
+volumes:
+  mysql-data: {}
